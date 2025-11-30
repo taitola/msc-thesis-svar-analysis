@@ -1,0 +1,8 @@
+pandas
+pandas_datareader
+fredapi
+numpy
+matplotlib
+seaborn
+python-dotenv
+ipykernel
