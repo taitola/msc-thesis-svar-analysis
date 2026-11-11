@@ -4,6 +4,6 @@ venv
 
 .env
 
-data_csv/
+
 __pycache__/
 .ipynb_checkpoints/

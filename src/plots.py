@@ -138,3 +138,104 @@ def plot_irf_grid(irf_results, cs_names, ylim=(-0.042, 0.006)):
 
         plt.tight_layout(rect=[0, 0, 1, 0.94])
         plt.show()
+
+
+def plot_ffr_counterfactual_comparison(
+    cf_results,
+    df_3var,
+    cf_start_date=config.COUNTERFACTUAL_START_DATE,
+):
+    """
+    Replicates Figure 21 in the thesis: Actual FFR vs. 3-VAR Counterfactual
+    and National Case-Shiller VAR Counterfactual.
+    """
+    if 'cs' not in cf_results:
+        print("National ('cs') results required for Figure 21 comparison.")
+        return
+
+    df_nat = cf_results['cs']
+
+    with plt.style.context('seaborn-v0_8-whitegrid'):
+        fig, ax = plt.subplots(figsize=(12, 5.5))
+
+        ax.plot(df_nat.index, df_nat['actual_ffr'], color='#2b5c8f',
+                linewidth=1.8, label='Actual FFR')
+        ax.plot(df_3var.index, df_3var['cf_ffr_3var'], color='#d62728',
+                linestyle='--', linewidth=1.6, label='3-VAR Counterfactual')
+        ax.plot(df_nat.index, df_nat['cf_ffr'], color='#2ca02c',
+                linestyle='-.', linewidth=1.6, label='National CS Counterfactual')
+
+        ax.axvline(pd.Timestamp(cf_start_date), color='grey', linestyle='--',
+                   linewidth=1.0, alpha=0.6)
+
+        ax.set_title('Federal Funds Rate Counterfactual: Structural FFR Shock = 0 from 2001/1',
+                     fontsize=13, fontweight='bold', pad=10)
+        ax.set_ylabel('FFR (%)', fontsize=11)
+        ax.set_ylim(0, 10.5)
+        ax.set_yticks([0, 2, 4, 6, 8, 10])
+        ax.legend(frameon=True, fontsize=10.5, loc='upper right')
+
+        plt.tight_layout()
+        plt.show()
+
+
+def plot_counterfactual_grid(
+    cf_results,
+    cs_names=config.CS_NAMES,
+    cf_start_date=config.COUNTERFACTUAL_START_DATE,
+):
+    """
+    Replicates Figure 23 in the thesis: 7x2 grid showing Actual vs. Counterfactual
+    Federal Funds Rate (left column) and Case-Shiller Index in levels (right column).
+    """
+    if not cf_results:
+        print("No counterfactual results to plot.")
+        return
+
+    n_rows = len(cf_results)
+    with plt.style.context('seaborn-v0_8-whitegrid'):
+        fig, axes = plt.subplots(n_rows, 2, figsize=(13, 3.0 * n_rows), sharex=True)
+
+        if n_rows == 1:
+            axes = np.array([axes])
+
+        for i, (cs_col, df_cf) in enumerate(cf_results.items()):
+            ax_ffr = axes[i, 0]
+            ax_hpi = axes[i, 1]
+            city_title = cs_names.get(cs_col, cs_col)
+
+            # Left Panel: Federal Funds Rate
+            ax_ffr.plot(df_cf.index, df_cf['actual_ffr'], color='#2b5c8f',
+                        linewidth=1.5, label='Actual')
+            ax_ffr.plot(df_cf.index, df_cf['cf_ffr'], color='#d62728',
+                        linestyle='--', linewidth=1.5, label='Counterfactual')
+            ax_ffr.axvline(pd.Timestamp(cf_start_date), color='grey',
+                           linestyle='--', linewidth=0.9, alpha=0.5)
+            ax_ffr.set_title('Federal Funds Rate', fontsize=11.5, fontweight='bold')
+            ax_ffr.set_ylabel('(%)', fontsize=10)
+            ax_ffr.set_ylim(0, 10.5)
+            ax_ffr.set_yticks([0, 2, 4, 6, 8, 10])
+            ax_ffr.legend(frameon=True, fontsize=9, loc='upper right')
+
+            # Right Panel: Case-Shiller Index (Levels)
+            ax_hpi.plot(df_cf.index, df_cf['actual_hpi'], color='#2b5c8f',
+                        linewidth=1.5, label='Actual')
+            ax_hpi.plot(df_cf.index, df_cf['cf_hpi'], color='#d62728',
+                        linestyle='--', linewidth=1.5, label='Counterfactual')
+            ax_hpi.axvline(pd.Timestamp(cf_start_date), color='grey',
+                           linestyle='--', linewidth=0.9, alpha=0.5)
+            ax_hpi.set_title(city_title, fontsize=11.5, fontweight='bold')
+            ax_hpi.set_ylabel('Case-Shiller Index', fontsize=10)
+            ax_hpi.set_ylim(0, 250)
+            ax_hpi.set_yticks([0, 50, 100, 150, 200, 250])
+            ax_hpi.legend(frameon=True, fontsize=9, loc='upper left')
+
+        fig.suptitle(
+            'Counterfactual: Structural FFR Shock = 0 from 2001/1',
+            fontsize=15,
+            fontweight='bold',
+            y=0.995,
+        )
+
+        plt.tight_layout(rect=[0, 0, 1, 0.985])
+        plt.show()

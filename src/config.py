@@ -24,7 +24,7 @@ LONG_HISTORY_START_DATE = "1959-01-01"
 # --- FRED tickers ---
 NATIONAL_TICKERS = {
     # VAR series
-    "cs": "CSUSHPINSA",  # Case-Shiller National Home Price Index
+    "cs": "CSUSHPISA",  # Case-Shiller National Home Price Index
     "cs10": "SPCS10RSA",  # Case-Shiller 10-City Home Price Index
     "ffr": "FEDFUNDS",  # Federal Funds Rate
     "unemp": "UNRATE",  # Unemployment Rate
@@ -81,3 +81,6 @@ VAR_LAGS = 12
 IRF_STEPS = 60
 N_BOOTSTRAP = 500
 BOOTSTRAP_SEED = 55555
+
+# --- Counterfactual simulation ---
+COUNTERFACTUAL_START_DATE = "2001-01-01"
