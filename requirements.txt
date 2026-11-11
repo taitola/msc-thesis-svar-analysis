@@ -1,7 +1,7 @@
 pandas
-pandas_datareader
 fredapi
 numpy
+scipy
 matplotlib
 seaborn
 python-dotenv
