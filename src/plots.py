@@ -1,53 +1,94 @@
-"""Plotting functions for the exploratory figures and the IRF grid."""
+"""Plotting functions for the exploratory figures, IRF grid and counterfactual figures.
 
+Every public function accepts an optional `save_path`. When given, the figure is written
+to that path at 300 dpi before it is displayed.
+"""
+
+from collections.abc import Iterator, Mapping
 from contextlib import contextmanager
+from os import PathLike
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from matplotlib.figure import Figure
 
 from src import config
+from src.var_irf import IrfBand
+
+SavePath = str | PathLike | None
 
 
 @contextmanager
-def _seaborn_theme():
+def _seaborn_theme() -> Iterator[None]:
     """Apply the exploratory plot style without affecting later figures."""
     with plt.rc_context():
         sns.set_theme(style="whitegrid")
         yield
 
 
-def plot_series(data, x=None, y=None, title=None, ylabel=None, xlabel='Year',
-                xlim_right=None, ylim=None, figsize=(12, 6), palette=None, linewidth=2.5):
+def _save_and_show(fig: Figure, save_path: SavePath = None) -> None:
+    """Optionally save a figure at 300 dpi, then display it."""
+    if save_path:
+        fig.savefig(save_path, dpi=300, bbox_inches='tight')
+    plt.show()
+
+
+def plot_series(
+    data: pd.DataFrame,
+    x: str | None = None,
+    y: str | None = None,
+    title: str | None = None,
+    ylabel: str | None = None,
+    xlabel: str | None = 'Year',
+    xlim_right: str | None = None,
+    ylim: tuple[float, float] | None = None,
+    figsize: tuple[float, float] = (12, 6),
+    palette: str | list[str] | None = None,
+    linewidth: float = 2.5,
+    save_path: SavePath = None,
+) -> None:
     """Generic plotting function for time series."""
     with _seaborn_theme():
-        plt.figure(figsize=figsize)
+        fig = plt.figure(figsize=figsize)
         sns.lineplot(data=data, x=x, y=y, palette=palette, linewidth=linewidth)
-        if title: plt.title(title)
-        if ylabel: plt.ylabel(ylabel)
-        if xlabel: plt.xlabel(xlabel)
-        if xlim_right: plt.xlim(right=pd.Timestamp(xlim_right))
-        if ylim: plt.ylim(ylim)
-        plt.show()
+        if title:
+            plt.title(title)
+        if ylabel:
+            plt.ylabel(ylabel)
+        if xlabel:
+            plt.xlabel(xlabel)
+        if xlim_right:
+            plt.xlim(right=pd.Timestamp(xlim_right))
+        if ylim:
+            plt.ylim(ylim)
+        _save_and_show(fig, save_path)
 
 
-def plot_national_permits_per_capita(df_per_capita):
-    """Plot national building permits per capita."""
+def plot_national_permits_per_capita(
+    df_per_capita: pd.DataFrame,
+    save_path: SavePath = None,
+) -> None:
+    """Plot national building permits per 1,000 residents."""
     plot_series(df_per_capita[['National']],
                 title='National Building Permits per Capita (Monthly Rate)',
-                ylabel='Ratio', palette=['black'])
+                ylabel='Permits per 1,000 Residents', palette=['black'],
+                save_path=save_path)
 
 
-def plot_metro_permits_per_capita(df_per_capita):
-    """Plot metro building permits per capita, with the legend sorted by peak value."""
+def plot_metro_permits_per_capita(
+    df_per_capita: pd.DataFrame,
+    save_path: SavePath = None,
+) -> None:
+    """Plot metro building permits per 1,000 residents, with the legend sorted by peak value."""
     df_metro = df_per_capita.drop(columns='National', errors='ignore')
     sorted_cols = df_metro.max().sort_values(ascending=False).index.tolist()
     plot_series(df_metro[sorted_cols], title='Metro Building Permits per Capita',
-                ylabel='Permits / Capita', palette='Set2')
+                ylabel='Permits per 1,000 Residents', palette='Set2', save_path=save_path)
 
 
-def plot_house_price_indices(df_var):
+def plot_house_price_indices(df_var: pd.DataFrame, save_path: SavePath = None) -> None:
     """Plot Case-Shiller indices, with the legend sorted by the last value."""
     cols = [col for col in config.HPI_COLS if col in df_var.columns]
     if not cols:
@@ -57,21 +98,22 @@ def plot_house_price_indices(df_var):
     sorted_cols = df_var[cols].iloc[-1].sort_values(ascending=False).index.tolist()
     plot_series(df_var[sorted_cols],
                 title='Case-Shiller House Price Indices (1987/01-2007/07), index at 2000/01 = 100',
-                ylabel='Index Value', xlim_right='2008-01-01', palette='tab10')
+                ylabel='Index Value', xlim_right='2008-01-01', palette='tab10',
+                save_path=save_path)
 
 
-def plot_economic_indicators(df_var):
+def plot_economic_indicators(df_var: pd.DataFrame, save_path: SavePath = None) -> None:
     """Plot the macroeconomic indicators used in the VAR on one percentage axis."""
     cols = [col for col in config.ECONOMIC_INDICATORS if col in df_var.columns]
     plot_series(df_var[cols].rename(columns=config.ECONOMIC_INDICATORS),
                 title='Economic Indicators (1987/01-2007/07)',
-                ylabel='Percent', xlim_right='2008-01-01', ylim=(0, 10))
+                ylabel='Percent', xlim_right='2008-01-01', ylim=(0, 10), save_path=save_path)
 
 
-def plot_housing_starts(df_visuals):
+def plot_housing_starts(df_visuals: pd.DataFrame, save_path: SavePath = None) -> None:
     """Plot national housing starts with recession periods shaded."""
     with _seaborn_theme():
-        plt.figure(figsize=(14, 7))
+        fig = plt.figure(figsize=(14, 7))
         sns.lineplot(data=df_visuals, x=df_visuals.index, y='National_housing starts',
                      linewidth=2.5, label='Housing Starts')
 
@@ -86,12 +128,18 @@ def plot_housing_starts(df_visuals):
         plt.xlabel('Year')
         plt.xlim(right=pd.Timestamp('2026-01-01'))
         plt.legend()
-        plt.show()
+        _save_and_show(fig, save_path)
 
 
-def plot_irf_grid(irf_results, cs_names, ylim=(-0.042, 0.006)):
+def plot_irf_grid(
+    irf_results: Mapping[str, IrfBand],
+    cs_names: Mapping[str, str],
+    ylim: tuple[float, float] = (-0.042, 0.006),
+    save_path: SavePath = None,
+) -> None:
     """
-    Plots the 7 IRF results in a 4x2 grid matching Figure 22 in the thesis.
+    Plots theta_{43,i}, the response of log(hpi_{t+i}) to a 1-SD structural FFR shock,
+    for the 7 indices in a 4x2 grid matching Figure 22 in the thesis.
     """
     if not irf_results:
         print("No results to plot.")
@@ -101,6 +149,7 @@ def plot_irf_grid(irf_results, cs_names, ylim=(-0.042, 0.006)):
         n_rows, n_cols = 4, 2
         fig, axes = plt.subplots(n_rows, n_cols, figsize=(10, 12), sharex=True, sharey=True)
         axes_flat = axes.flatten()
+        n_panels = len(irf_results)
 
         for i, (cs_col, (response, lower, upper)) in enumerate(irf_results.items()):
             ax = axes_flat[i]
@@ -121,12 +170,14 @@ def plot_irf_grid(irf_results, cs_names, ylim=(-0.042, 0.006)):
             if i % n_cols == 0:
                 ax.set_ylabel('Response', fontsize=11)
 
-        # Set X-axis label and ticks on the bottom panel(s)
-        axes_flat[len(irf_results) - 1].set_xlabel('Months', fontsize=11)
-        axes_flat[len(irf_results) - 1].tick_params(labelbottom=True)
+        # The last panel of each column needs its own X-axis, because sharex=True hides
+        # tick labels on any panel above a subplot that is later removed
+        for ax in axes_flat[max(n_panels - n_cols, 0):n_panels]:
+            ax.set_xlabel('Months', fontsize=11)
+            ax.tick_params(labelbottom=True)
 
         # Remove unused bottom-right subplot
-        for j in range(len(irf_results), len(axes_flat)):
+        for j in range(n_panels, len(axes_flat)):
             fig.delaxes(axes_flat[j])
 
         fig.suptitle(
@@ -137,17 +188,18 @@ def plot_irf_grid(irf_results, cs_names, ylim=(-0.042, 0.006)):
         )
 
         plt.tight_layout(rect=[0, 0, 1, 0.94])
-        plt.show()
+        _save_and_show(fig, save_path)
 
 
 def plot_ffr_counterfactual_comparison(
-    cf_results,
-    df_3var,
-    cf_start_date=config.COUNTERFACTUAL_START_DATE,
-):
+    cf_results: Mapping[str, pd.DataFrame],
+    df_3var: pd.DataFrame,
+    cf_start_date: str = config.COUNTERFACTUAL_START_DATE,
+    save_path: SavePath = None,
+) -> None:
     """
     Replicates Figure 21 in the thesis: Actual FFR vs. 3-VAR Counterfactual
-    and National Case-Shiller VAR Counterfactual.
+    and National Case-Shiller VAR Counterfactual, with w_3t^{cf} = 0 from T*.
     """
     if 'cs' not in cf_results:
         print("National ('cs') results required for Figure 21 comparison.")
@@ -176,17 +228,19 @@ def plot_ffr_counterfactual_comparison(
         ax.legend(frameon=True, fontsize=10.5, loc='upper right')
 
         plt.tight_layout()
-        plt.show()
+        _save_and_show(fig, save_path)
 
 
 def plot_counterfactual_grid(
-    cf_results,
-    cs_names=config.CS_NAMES,
-    cf_start_date=config.COUNTERFACTUAL_START_DATE,
-):
+    cf_results: Mapping[str, pd.DataFrame],
+    cs_names: Mapping[str, str] = config.CS_NAMES,
+    cf_start_date: str = config.COUNTERFACTUAL_START_DATE,
+    save_path: SavePath = None,
+) -> None:
     """
     Replicates Figure 23 in the thesis: 7x2 grid showing Actual vs. Counterfactual
     Federal Funds Rate (left column) and Case-Shiller Index in levels (right column).
+    Rows follow the order of `cf_results`.
     """
     if not cf_results:
         print("No counterfactual results to plot.")
@@ -238,4 +292,4 @@ def plot_counterfactual_grid(
         )
 
         plt.tight_layout(rect=[0, 0, 1, 0.985])
-        plt.show()
+        _save_and_show(fig, save_path)

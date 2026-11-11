@@ -1,19 +1,36 @@
-"""Simulate empirical counterfactual trajectories by zeroing structural FFR shocks."""
+"""Simulate empirical counterfactual trajectories by zeroing structural FFR shocks.
+
+Historical decompositions for stationary models do not apply to I(1) variables in levels,
+because the initial-condition transients do not die out. Following Kilian & Lütkepohl
+(2017, p. 120), the paths are simulated in-sample conditional on
+
+    y_t^{cf} = nu + A_1 y_{t-1}^{cf} + ... + A_12 y_{t-12}^{cf} + B_0^{-1} w_t^{cf}
+
+where w_t^{cf} = w_t for t < T* and w_t^{cf} = (w_1t, w_2t, 0, w_4t)' for t >= T*.
+"""
 
 import numpy as np
 import pandas as pd
 from statsmodels.tsa.api import VAR
+from statsmodels.tsa.vector_ar.var_model import VARResults
 
 from src import config
 
 
-def _simulate_counterfactual_path(results, ffr_idx, cf_start_date):
+def _simulate_counterfactual_path(
+    results: VARResults,
+    ffr_idx: int,
+    cf_start_date: str,
+) -> pd.DataFrame:
     """
     Replicates Equation (5.18) from the thesis:
       1. Orthogonalizes reduced-form residuals into structural shocks: w_t = B_0 u_t.
       2. Sets structural monetary policy shocks w_{ffr, t} = 0 for t >= cf_start_date.
       3. Propagates counterfactual endogenous variables y_t^{cf} dynamically forward
          using the counterfactual lagged realizations y_{t-1}^{cf}, ..., y_{t-p}^{cf}.
+
+    Returns:
+        DataFrame of y_t^{cf} with one column per model variable, over the full sample.
     """
     p = results.k_ar
     T, K = results.resid.shape
@@ -54,15 +71,18 @@ def _simulate_counterfactual_path(results, ffr_idx, cf_start_date):
 
 
 def run_3var_counterfactual(
-    df,
-    start_date=config.VAR_START_DATE,
-    end_date=config.VAR_END_DATE,
-    cf_start_date=config.COUNTERFACTUAL_START_DATE,
-    lags=config.VAR_LAGS,
-):
+    df: pd.DataFrame,
+    start_date: str = config.VAR_START_DATE,
+    end_date: str = config.VAR_END_DATE,
+    cf_start_date: str = config.COUNTERFACTUAL_START_DATE,
+    lags: int = config.VAR_LAGS,
+) -> pd.DataFrame:
     """
     Simulates the baseline 3-variable VAR counterfactual (unemp, pce_rate, ffr)
     omitting house prices, used as the benchmark in Figure 21.
+
+    Returns:
+        DataFrame with columns ['actual_ffr', 'cf_ffr_3var'].
     """
     data = df.copy()
     if start_date is not None:
@@ -84,16 +104,18 @@ def run_3var_counterfactual(
 
 
 def run_counterfactual_analysis(
-    df,
-    cs_cols=config.CS_COLS,
-    start_date=config.VAR_START_DATE,
-    end_date=config.VAR_END_DATE,
-    cf_start_date=config.COUNTERFACTUAL_START_DATE,
-    lags=config.VAR_LAGS,
-):
+    df: pd.DataFrame,
+    cs_cols: list[str] = config.CS_COLS,
+    start_date: str = config.VAR_START_DATE,
+    end_date: str = config.VAR_END_DATE,
+    cf_start_date: str = config.COUNTERFACTUAL_START_DATE,
+    lags: int = config.VAR_LAGS,
+) -> dict[str, pd.DataFrame]:
     """
     Runs the 4-variable SVAR empirical counterfactual simulation for each
     Case-Shiller index (setting w_{ffr, t} = 0 from 2001-01-01 onward).
+
+    The printed Peak Diff is (actual peak - counterfactual peak) / counterfactual peak.
 
     Returns:
         dict: Mapping each cs_col to a DataFrame with columns

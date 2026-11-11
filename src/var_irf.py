@@ -1,21 +1,43 @@
-"""Estimate VAR models and orthogonalized IRFs that replicate Stata's algorithm."""
+"""Estimate Cholesky-identified VAR(12) models and Stata-compatible impulse responses.
+
+Each model is the reduced form (Kilian & Lütkepohl, 2017, Eq. 2.2.4)
+
+    y_t = nu + A_1 y_{t-1} + ... + A_12 y_{t-12} + u_t,    u_t ~ (0, Sigma_u)
+
+with y_t = [unemp_t, pce_rate_t, ffr_t, log(hpi_t)]'. Structural shocks satisfy
+u_t = B_0^{-1} w_t, where B_0^{-1} = P = chol(Sigma_u) is lower triangular.
+"""
 
 import numpy as np
 import pandas as pd
 from scipy.stats import norm
 from statsmodels.tsa.api import VAR
+from statsmodels.tsa.vector_ar.var_model import VARResults
+
+IrfBand = tuple[np.ndarray, np.ndarray, np.ndarray]
 
 
-def _compute_stata_oirf(results, steps):
+def _compute_stata_oirf(results: VARResults, steps: int) -> np.ndarray:
     """
-    Computes orthogonalized IRFs matching Stata's default `var` ML covariance
-    estimator (dividing Sigma_u by T instead of T - Kp - 1).
+    Computes orthogonalized IRFs Theta_i = J A^i J' B_0^{-1} for i = 0, ..., steps,
+    matching Stata's default `var` ML covariance estimator.
+
+    `statsmodels` estimates Sigma_u by dividing by T - Kp - 1, while Stata divides by T,
+    so the Cholesky-based responses are scaled by sqrt((T - Kp - 1) / T).
+
+    Returns:
+        Array of shape (steps + 1, K, K), where element [i, 3, 2] is theta_{43,i}.
     """
     df_scale = np.sqrt(results.df_resid / results.nobs)
     return results.irf(steps).orth_irfs * df_scale
 
 
-def _bootstrap_stata_oirf_se(results, steps=60, n_boot=500, seed=55555):
+def _bootstrap_stata_oirf_se(
+    results: VARResults,
+    steps: int = 60,
+    n_boot: int = 500,
+    seed: int = 55555,
+) -> np.ndarray:
     """
     Implements Stata's exact residual bootstrap algorithm (`irf create, bs reps(R)`)
     as documented in [TS] irf create (Methods and formulas, p. 26):
@@ -24,6 +46,11 @@ def _bootstrap_stata_oirf_se(results, steps=60, n_boot=500, seed=55555):
       3. Recursively simulate synthetic sample Y* of length p + T.
       4. Re-estimate VAR(p), compute OIRFs (with 1/T ML scaling), and return
          the sample standard deviation (ddof=1) across R replications.
+
+    Resampling whole residual vectors preserves contemporaneous cross-equation correlation.
+
+    Returns:
+        Array of shape (steps + 1, K, K) with the bootstrap standard error of each response.
     """
     rng = np.random.default_rng(seed)
 
@@ -61,19 +88,34 @@ def _bootstrap_stata_oirf_se(results, steps=60, n_boot=500, seed=55555):
 
 
 def run_var_analysis(
-    df,
-    cs_cols,
-    start_date=None,
-    end_date=None,
-    lags=12,
-    irf_steps=60,
-    n_boot=500,
-    seed=55555
-):
+    df: pd.DataFrame,
+    cs_cols: list[str],
+    start_date: str | None = None,
+    end_date: str | None = None,
+    lags: int = 12,
+    irf_steps: int = 60,
+    n_boot: int = 500,
+    seed: int = 55555,
+) -> dict[str, IrfBand]:
     """
     Fits 4-variable SVAR models for each Case-Shiller index and computes
     orthogonalized IRFs with symmetric bootstrapped 95% confidence intervals
     matching Stata's `irf create, step(60) bs reps(500)`.
+
+    Args:
+        df: Output of `prepare_var_data`.
+        cs_cols: Case-Shiller indices to model, one VAR each.
+        start_date: First month of the sample, including the p presample observations.
+        end_date: Last month of the sample.
+        lags: Lag order p.
+        irf_steps: Maximum horizon i.
+        n_boot: Number of bootstrap replications R.
+        seed: Seed for the NumPy random generator used in each model's bootstrap.
+
+    Returns:
+        Mapping from index name to (response, lower, upper) for theta_{43,i}, the response
+        of log(hpi_{t+i}) to a 1-SD structural FFR shock w_3t, with bands
+        theta_{43,i} +/- 1.96 * SE_bs.
     """
     irf_results = {}
     z_crit = norm.ppf(0.975)  # ~1.959964 (matches Stata's 95% normal CI)
