@@ -4,25 +4,25 @@
 
 > Aitola, T. (2026). *Monetary Policy and the 2007 US Housing Bubble: A Structural Vector Autoregressive Analysis*. Master's Thesis in Economics, Tampere University.
 
-Did the Federal Reserve's accommodative policy in 2001–2004 fuel the US housing bubble? This repository estimates separate 4-variable structural VARs on monthly data from 1987/01 to 2007/07 for two national house price aggregates and five metropolitan areas with very different housing supply elasticities. A one standard deviation monetary policy shock has large, persistent effects on house prices nationally and in supply-inelastic New York, and almost none in elastic Charlotte and Denver. A counterfactual that removes policy shocks from 2001 onward implies that the National, 10-City and New York peaks would have been 17–20% lower, while Las Vegas keeps its mid-2003 acceleration, which is consistent with a credit supply and speculation story.
+From 2001 to 2004 the Federal Reserve held the federal funds rate (FFR) well below the level its own Taylor rule-type reaction to unemployment and inflation would have implied. Did that easy money inflate the US housing bubble? This repository answers the question with structural VARs estimated on monthly data from 1987/01 to 2007/07, for two national Case-Shiller indices and five metropolitan areas with very different housing supply elasticities. The answer depends on where you look. Nationally and in supply-constrained New York, monetary policy shocks were followed by house price changes of around 2%, and without the post-2001 shocks the national price peak would have been about 17% lower. In elastic markets such as Charlotte and Denver, new construction absorbed the extra demand and prices barely moved.
 
 **[Read the full walkthrough in `thesis_analysis.ipynb`](thesis_analysis.ipynb)**, with equations, figures and interpretation.
 
-## Key Empirical Findings
+## Key Findings
 
-| Series | Supply Elasticity / Market Regime | Construction Volume¹ | OIRF Significance & Trough² | Counterfactual Peak Impact³ |
-|---|---|---|---|---|
-| **National** | Aggregate | 0.51 | Significant, −1.95% at 57 months | +20.0% (184.6 vs 153.8) |
-| **10-City** | Aggregate of large metros | Not computed | Significant, −2.26% at 60 months | +25.7% (226.9 vs 180.5) |
-| **New York** | Inelastic, heavily regulated | 0.24, low | Significant, −1.84% at 58 months | +20.7% (216.6 vs 179.5) |
-| **Las Vegas** | Elastic land, speculative boom | 1.69, very high | Significant, −2.49% at 48 months | +23.3% (235.8 vs 191.3), mid-2003 kink persists |
-| **Denver** | Elastic, lightly regulated | 0.73, high | Not significant, −0.26% at 40 months | +3.5% (139.3 vs 134.7) |
-| **Charlotte** | Elastic, lightly regulated | 1.23, high | Not significant, never below zero | −0.2% (133.7 vs 133.9) |
-| **Cleveland** | Stagnating Rust Belt market | 0.26, low | Significant but small, −0.44% at 33 months | +3.0% (123.4 vs 119.8) |
+### House prices respond to monetary policy shocks
 
-¹ Building permits per 1,000 residents per month, 2000–2007 mean.
-² Trough response of log house prices ×100 to a 1-SD FFR shock of about 12 basis points. Significant means the 95% bootstrap band lies below zero at the trough.
-³ Actual peak relative to the counterfactual peak with policy shocks set to zero from 2001/01. Index values are actual vs counterfactual, with 2000/01 = 100.
+![Orthogonalized impulse responses of house prices to an FFR shock](figures/fig22_irf_grid.png)
+
+Each panel shows how log house prices respond over five years to a one standard deviation, roughly 12 basis point, monetary policy shock, with 95% bootstrapped bands. The model is linear, so an easing shock of the same size moves prices by the same amount in the opposite direction. Nationally, prices move by almost 2% after four to five years, and the 10-City index (2.3%), New York (1.8%) and Las Vegas (2.5%) respond similarly. In supply-elastic Charlotte and Denver the response is never significantly different from zero, and in Cleveland it is small, at 0.4%.
+
+### The Fed held rates below its Taylor rule from 2001
+
+![Actual and counterfactual federal funds rate](figures/fig21_ffr_counterfactual.png)
+
+The counterfactual removes all monetary policy shocks from 2001/01 onward, so the FFR follows only the Fed's estimated systematic reaction to unemployment and inflation. The actual rate ran 1.2–1.6 percentage points below this Taylor rule baseline on average in each year from 2002 to 2004, and up to 2.2 points below it. A 3-variable model without house prices gives almost the same baseline through 2004, so the gap does not come from including housing in the model.
+
+Feeding the baseline rate through each model shows what this deviation did to prices. Without the shocks, peak house prices would have been 17% lower nationally, 20% lower in the 10-City index, 17% lower in New York and 19% lower in Las Vegas. Las Vegas still keeps its sharp mid-2003 acceleration, which points to the private-label mortgage credit boom and speculation rather than the interest rate alone. Charlotte, Denver and Cleveland change by 3.5% or less. All seven paths are shown in [Figure 23](figures/fig23_counterfactual_grid.png).
 
 ## Methodology & Stata 19 Cross-Validation
 

@@ -4,9 +4,10 @@ Every public function accepts an optional `save_path`. When given, the figure is
 to that path at 300 dpi before it is displayed.
 """
 
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from os import PathLike
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,7 +22,7 @@ SavePath = str | PathLike | None
 
 
 @contextmanager
-def _seaborn_theme() -> Iterator[None]:
+def _seaborn_theme() -> Generator[None, None, None]:
     """Apply the exploratory plot style without affecting later figures."""
     with plt.rc_context():
         sns.set_theme(style="whitegrid")
@@ -29,8 +30,9 @@ def _seaborn_theme() -> Iterator[None]:
 
 
 def _save_and_show(fig: Figure, save_path: SavePath = None) -> None:
-    """Optionally save a figure at 300 dpi, then display it."""
+    """Optionally save a figure at 300 dpi, creating its folder if needed, then display it."""
     if save_path:
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, dpi=300, bbox_inches='tight')
     plt.show()
 

@@ -13,6 +13,7 @@ ENV_PATH: Path = PROJECT_ROOT / ".env"
 DATA_DIR: Path = PROJECT_ROOT / "data_csv"
 VAR_DATA_PATH: Path = DATA_DIR / "var_data.csv"
 VISUALS_DATA_PATH: Path = DATA_DIR / "visual_data.csv"
+FIGURES_DIR: Path = PROJECT_ROOT / "figures"  # Saved key figures, used in README.md
 
 # --- Sample periods ---
 # VAR estimation sample: Great Moderation start to the month before the GFC outbreak
